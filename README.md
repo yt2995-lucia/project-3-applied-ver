@@ -71,9 +71,74 @@ Each submission records:
 
 ---
 
+## Repository Structure
+
+```
+project-3-applied-ver/
+├── app.R                                      # Shiny app (Groups A & B)
+├── google_apps_script.js                      # Google Sheets logging endpoint
+├── data_cleaning.py                           # Raw data cleaning script
+├── analysis.py                                # Full statistical analysis script
+├── AB testing Data Collection - Sheet1 (2).csv  # Raw data export from Google Sheets
+├── ab_test_clean_keep_outliers.csv            # Cleaned data (all 97 records)
+├── ab_test_clean_no_outliers.csv              # Cleaned data (outliers removed, n=93)
+├── figures/                                   # Output plots from analysis.py
+│   ├── fig1_completion.png
+│   ├── fig2_time.png
+│   ├── fig3_per_task.png
+│   ├── fig4_per_task_time.png
+│   ├── fig5_subgroup.png
+│   └── fig6_bootstrap.png
+├── report.tex                                 # Full LaTeX report (Overleaf)
+└── README.md
+```
+
+---
+
 ## Analysis
 
-After data collection, run `analysis.R` to:
-- Compare task completion rates between Group A and Group B (Chi-square / Mann-Whitney U)
-- Compare total time between groups (Welch t-test)
-- Visualise per-task completion rates and time distributions
+### Step 1 — Clean the raw data
+
+```bash
+python data_cleaning.py
+```
+
+Reads the raw Google Sheets CSV, standardises columns, removes duplicates, validates task completion flags, detects time outliers (IQR method), and writes two output files:
+
+- `ab_test_clean_keep_outliers.csv` — all 97 valid records (used for primary analysis)
+- `ab_test_clean_no_outliers.csv` — 93 records with extreme session times removed (used for sensitivity analysis)
+
+### Step 2 — Install Python dependencies
+
+```bash
+pip install pandas numpy scipy matplotlib seaborn statsmodels
+```
+
+### Step 3 — Run the statistical analysis
+
+```bash
+python analysis.py
+```
+
+This script runs the full analysis pipeline and saves all figures to `figures/`. It covers:
+
+| Section | What it does |
+|---------|-------------|
+| Descriptive statistics | Mean, median, SD for completion rate, tasks done, and time by group |
+| Normality tests | Shapiro-Wilk on all continuous outcomes → justifies non-parametric tests |
+| Primary analysis | Chi-square, Fisher's exact, and proportions z-test on full-completion (binary); Mann-Whitney U on task count |
+| Secondary analysis | Mann-Whitney U and Welch's t-test on avg time/task (completers only); bootstrap 95% CI |
+| Sensitivity analysis | Repeats all tests on outlier-trimmed dataset to confirm robustness |
+| Subgroup analysis | Fisher's exact within prior-experience and perceived-difficulty strata |
+| Power analysis | Post-hoc power for both primary tests |
+
+### Key Results
+
+| Metric | Group A (No Hints) | Group B (Hints) | Result |
+|--------|-------------------|-----------------|--------|
+| Full completion rate | 42.3% (22/52) | 71.1% (32/45) | **p = 0.008**, Cramér's V = 0.268 |
+| Median tasks done | 4.0 | 5.0 | MWU **p = 0.003**, r = 0.317 |
+| Median avg time/task (completers) | 8.1s | 17.0s | MWU p = 0.096 (n.s.) |
+| Median total session time | 40.5s | 66.0s | MWU **p = 0.016**, r = 0.286 |
+
+Group B (guided) completed significantly more tasks. The time difference among completers was not statistically significant, reflecting a comprehension–speed tradeoff rather than inefficiency.
